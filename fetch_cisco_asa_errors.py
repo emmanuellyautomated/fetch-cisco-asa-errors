@@ -20,7 +20,7 @@ def map_sections_to_dicts(url, div_root_id):
     error_sections = get_error_sections(url, div_root_id)
     cisco_error_list = []
     for section in error_sections:
-        error_id = section.find('h3').text_content().strip()
+        error_id = section.find('h3[@class="p_H_Head2"]').text_content().strip()
         msg = section.find('span[@class="pEM_ErrMsg"]').text_content().split(':')[-1].strip()
         explanation_and_recommendation = section.findall('p')  # auxiliary information is here in <p> tags
         explanation = explanation_and_recommendation[0].text_content().strip()
