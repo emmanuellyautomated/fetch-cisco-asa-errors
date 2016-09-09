@@ -8,6 +8,12 @@ from helpers import pluck_children, content_from
 from helpers import syslog_template as template
 
 
+#TODO:
+#----> handle multiple selectors from template
+#----> separate dicts with multiple ids
+#----> handle unorthodox formats
+
+
 def get_page_root(url):
     response = requests.get(url)
     page = response.content
@@ -50,10 +56,6 @@ cisco_errors_urls = [
 
 
 class TestCiscoASAErrorsFetch(unittest.TestCase):
-    #TODO:
-    #----> separate dicts with multiple ids
-    #----> handle unorthodox formats
-
     def setUp(self):
         target = open('sample_asa_errors_page.html', 'r')
         self.sample_html = target.read()
