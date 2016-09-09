@@ -16,21 +16,35 @@ def get_error_sections(url, div_root_id):
     errors_section_root = errors_div_root.getchildren()[1]  # gets the section containing all error-sections
     return errors_section_root.findall('section')
 
+    #section_copy.find('p[@class="pEE_ErrExp"]').getparent().remove(section_copy.find('p[@class="pEE_ErrExp"]'))
+def pluck_children(parent, xpath, child=False):
+    children = parent.findall(xpath)
+    try:
+        for child in children:
+            parent.remove(child)
+            return children
+    except TypeError:
+        return False
+
+def content_from(element):
+    return element.text_content().strip()
+
+
 def map_sections_to_dicts(url, div_root_id):
     error_sections = get_error_sections(url, div_root_id)
     cisco_error_list = []
     for section in error_sections:
-        error_id = section.find('h3[@class="p_H_Head2"]').text_content().strip()
-        msg = section.find('span[@class="pEM_ErrMsg"]').text_content().split(':')[-1].strip()
-        explanation = section.find('p[@class="pEE_ErrExp"]').text_content().strip()
-        recommendation = section.find('p[@class="pEA_ErrAct"]').text_content().split('Recommended Action')[-1].strip()
-        error_data = section.findall('p')  # auxiliary information is here in <p> tags
+        error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')][0]
+        msg = [content_from(child) for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
+        explanation = [content_from(child) for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
+        recommendation = [content_from(child) for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
+        error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
         cisco_error_list.append(
             {
-                "id":               error_id,
-                "msg":              msg,
+                "id":               error_id.split(', '),
+                "msg":              msg,  # .split(':')[-1]
                 "explanation":      explanation,
-                "recommendation":   recommendation
+                "recommendation":   recommendation  # .split('Recommended Action')[-1]
             }
         )
     return cisco_error_list
@@ -145,20 +159,6 @@ NOT IDEAL:
     <ul>
         <li>
         <...>
-    <p>
-    <...>
-    <p>  # action
-    <...>
-    <p>
-
-<section>
-    <h3>
-    <span>
-    <p>
-    <ul>
-        <li>
-        <...>
-    <p>  # action
     <ul>
         <li>
         <...>
