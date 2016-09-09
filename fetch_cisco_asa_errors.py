@@ -4,6 +4,7 @@ import mock
 
 from lxml import html
 from pprint import pprint as pp
+from helpers import *
 
 
 def get_page_root(url):
@@ -16,6 +17,34 @@ def get_error_sections(url, div_root_id):
     errors_section_root = errors_div_root.getchildren()[1]  # gets the section containing all error-sections
     return errors_section_root.findall('section')
 
+def generate_error_dict(section, **kwargs):
+    for k, v in kwargs.items():
+        kwargs[k] = [content_from(child, drop=v['replace']) for child in pluck_children(section, v['selector'])]
+    return kwargs
+
+kwargs = {
+    "id":       {
+        "selector": 'h3[@class="p_H_Head2"]',
+        "replace":  ['', '']
+    },
+    "msg":      {
+        "selector": 'span[@class="pEM_ErrMsg"]',
+        "replace":  ['Error Message ', '']
+    },
+    "exp":      {
+        "selector": 'p[@class="pEE_ErrExp"]',
+        "replace":  ['Explanation', '']
+    },
+    "aux_exp":  {
+        "selector": 'p[@class="pB2_Body2"]',
+        "replace":  ['Explanation', '']
+    },
+    "action":   {
+        "selector": 'p[@class="pEA_ErrAct"]',
+        "replace":  ['Recommended Action ', '']
+    }
+}
+
 def pluck_children(parent, xpath, child=False):
     children = parent.findall(xpath)
     try:
@@ -25,35 +54,23 @@ def pluck_children(parent, xpath, child=False):
     except TypeError:
         return False
 
-def content_from(element, split=None):
+def content_from(element, drop=None):
     formatted = element.text_content().strip()
-    return formatted if not split else formatted.split(split)[-1]
+    return formatted if not drop else formatted.replace(*drop)
 
-def map_section_to_dicts(url, div_root_id):
+def map_section_to_dicts(url, div_root_id, kwargs):
     error_sections = get_error_sections(url, div_root_id)
     cisco_error_list = []
     for section in error_sections:
-        error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')]
-        msg = [content_from(child, split='Error Message ') for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
-        exp = [content_from(child, split='Explanation ') for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
-        aux_exp = [content_from(child) for child in pluck_children(section, 'p[@class="pB2_Body2"]')]
-        action = [content_from(child, split='Recommended Action ') for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
+        error_dict = generate_error_dict(section, **kwargs)
         error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
-        cisco_error_list.append(
-            {
-                "id":       error_id,
-                "msg":      msg,  # .split(':')[-1]
-                "exp":      exp,
-                "aux_exp":  aux_exp,
-                "action":   action
-            }
-        )
+        cisco_error_list.append(error_dict)
     return cisco_error_list
 
-def map_sections_to_dicts(urls, div_root_id):
+def map_sections_to_dicts(urls, div_root_id, kwargs):
     results = []
     for url in urls:
-        cisco_error_list = map_section_to_dicts(url, div_root_id)
+        cisco_error_list = map_section_to_dicts(url, div_root_id, kwargs)
         results.append(cisco_error_list)
     return [d for l in results for d in l]
 
@@ -104,7 +121,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
     @mock.patch('requests.get')
     def test_that_sections_get_mapped_to_error_dicts(self, mock_get):
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent')
+        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', kwargs)
         non_dicts = [d for d in error_dicts if type(d).__name__ != 'dict']
         self.assertTrue(len(non_dicts) == 0)
 
@@ -112,9 +129,10 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
     def test_that_error_dicts_have_the_appropriate_keys(self, mock_get):
         expected_keys = sorted(['id', 'msg', 'exp', 'aux_exp', 'action'])
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent')
+        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', kwargs)
         dict_keys = [e.keys() for e in error_dicts]
         keys_found = sorted(list(set([key for keys in dict_keys for key in keys])))
+        pp(error_dicts[:2])
         self.assertTrue(keys_found == expected_keys)
 
 
