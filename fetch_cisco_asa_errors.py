@@ -31,28 +31,31 @@ def content_from(element, split=None):
     return formatted if not split else formatted.split(split)[-1]
 
 
-def map_sections_to_dicts(url, div_root_id):
-    error_sections = get_error_sections(url, div_root_id)
-    cisco_error_list = []
-    for section in error_sections:
-        error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')]
-        msg = [content_from(child, split='Error Message ') for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
-        exp = [content_from(child, split='Explanation ') for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
-        aux_exp = [content_from(child) for child in pluck_children(section, 'p[@class="pB2_Body2"]')]
-        action = [content_from(child, split='Recommended Action ') for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
-        error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
-        cisco_error_list.append(
-            {
-                "id":       error_id,
-                "msg":      msg,  # .split(':')[-1]
-                "exp":      exp,
-                "aux_exp":  aux_exp,
-                "action":   action
-            }
-        )
-    return cisco_error_list
+def map_sections_to_dicts(urls, div_root_id):
+    results = []
+    for url in urls:
+        error_sections = get_error_sections(url, div_root_id)
+        cisco_error_list = []
+        for section in error_sections:
+            error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')]
+            msg = [content_from(child, split='Error Message ') for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
+            exp = [content_from(child, split='Explanation ') for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
+            aux_exp = [content_from(child) for child in pluck_children(section, 'p[@class="pB2_Body2"]')]
+            action = [content_from(child, split='Recommended Action ') for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
+            error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
+            cisco_error_list.append(
+                {
+                    "id":       error_id,
+                    "msg":      msg,  # .split(':')[-1]
+                    "exp":      exp,
+                    "aux_exp":  aux_exp,
+                    "action":   action
+                }
+            )
+        results.append(cisco_error_list)
+    return [d for l in results for d in l]
 
-cisco_errors_url = 'http://www.cisco.com/c/en/us/td/docs/security/asa/syslog-guide/syslogs/logmsgs1.html'
+cisco_errors_url = ['http://www.cisco.com/c/en/us/td/docs/security/asa/syslog-guide/syslogs/logmsgs1.html']
 cisco_errors_urls = [
     'http://www.cisco.com/c/en/us/td/docs/security/asa/syslog-guide/syslogs/logmsgs1.html',
     'http://www.cisco.com/c/en/us/td/docs/security/asa/syslog-guide/syslogs/logmsgs2.html'
@@ -64,8 +67,8 @@ cisco_errors_urls = [
 
 class TestCiscoASAErrorsFetch(unittest.TestCase):
     #TODO:
-    #----> handle list of urls
-    #----> handle errors with multiple ids
+    #----> separate dicts with multiple ids
+    #----> handle unorthodox formats
 
     def setUp(self):
         target = open('sample_asa_errors_page.html', 'r')
@@ -110,7 +113,6 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
         error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent')
         dict_keys = [e.keys() for e in error_dicts]
         keys_found = sorted(list(set([key for keys in dict_keys for key in keys])))
-        pp([d for d in error_dicts if any(d.get('aux_exp'))][:10])
         self.assertTrue(keys_found == expected_keys)
 
 
