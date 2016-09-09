@@ -26,25 +26,26 @@ def pluck_children(parent, xpath, child=False):
     except TypeError:
         return False
 
-def content_from(element):
-    return element.text_content().strip()
+def content_from(element, split=None):
+    formatted = element.text_content().strip()
+    return formatted if not split else formatted.split(split)[-1]
 
 
 def map_sections_to_dicts(url, div_root_id):
     error_sections = get_error_sections(url, div_root_id)
     cisco_error_list = []
     for section in error_sections:
-        error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')][0]
-        msg = [content_from(child) for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
+        error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')]
+        msg = [content_from(child, split='Error Message ') for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
         explanation = [content_from(child) for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
-        recommendation = [content_from(child) for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
+        action = [content_from(child, split='Recommended Action ') for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
         error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
         cisco_error_list.append(
             {
-                "id":               error_id.split(', '),
+                "id":               error_id,
                 "msg":              msg,  # .split(':')[-1]
                 "explanation":      explanation,
-                "recommendation":   recommendation  # .split('Recommended Action')[-1]
+                "action":           action
             }
         )
     return cisco_error_list
@@ -102,7 +103,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
 
     @mock.patch('requests.get')
     def test_that_error_dicts_have_the_appropriate_keys(self, mock_get):
-        expected_keys = sorted(['id', 'msg', 'explanation', 'recommendation'])
+        expected_keys = sorted(['id', 'msg', 'explanation', 'action'])
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
         error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent')
         dict_keys = [e.keys() for e in error_dicts]
