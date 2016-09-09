@@ -22,7 +22,7 @@ def pluck_children(parent, xpath, child=False):
     try:
         for child in children:
             parent.remove(child)
-            return children
+        return children
     except TypeError:
         return False
 
@@ -38,6 +38,7 @@ def map_sections_to_dicts(url, div_root_id):
         error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')]
         msg = [content_from(child, split='Error Message ') for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
         explanation = [content_from(child) for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
+        aux_exp = [content_from(child) for child in pluck_children(section, 'p[@class="p_H_Head2"]')]
         action = [content_from(child, split='Recommended Action ') for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
         error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
         cisco_error_list.append(
@@ -45,6 +46,7 @@ def map_sections_to_dicts(url, div_root_id):
                 "id":               error_id,
                 "msg":              msg,  # .split(':')[-1]
                 "explanation":      explanation,
+                "aux_exp":          aux_exp,
                 "action":           action
             }
         )
