@@ -4,7 +4,8 @@ import mock
 
 from lxml import html
 from pprint import pprint as pp
-from helpers import *
+from helpers import pluck_children, content_from
+from helpers import syslog_template as template
 
 
 def get_page_root(url):
@@ -17,24 +18,24 @@ def get_error_sections(url, div_root_id):
     errors_section_root = errors_div_root.getchildren()[1]  # gets the section containing all error-sections
     return errors_section_root.findall('section')
 
-def generate_error_dict(section, **kwargs):
-    for k, v in kwargs.items():
-        kwargs[k] = [content_from(child, drop=v['replace']) for child in pluck_children(section, v['selector'])]
-    return kwargs
+def generate_error_dict(section, **template):
+    for k, v in template.items():
+        template[k] = [content_from(child, drop=v['replace']) for child in pluck_children(section, v['selector'])]
+    return template
 
-def map_section_to_dicts(url, div_root_id, kwargs):
+def map_section_to_dicts(url, div_root_id, template):
     error_sections = get_error_sections(url, div_root_id)
     cisco_error_list = []
     for section in error_sections:
-        error_dict = generate_error_dict(section, **kwargs)
+        error_dict = generate_error_dict(section, **template)
         error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
         cisco_error_list.append(error_dict)
     return cisco_error_list
 
-def map_sections_to_dicts(urls, div_root_id, kwargs):
+def map_sections_to_dicts(urls, div_root_id, template):
     results = []
     for url in urls:
-        cisco_error_list = map_section_to_dicts(url, div_root_id, kwargs)
+        cisco_error_list = map_section_to_dicts(url, div_root_id, template)
         results.append(cisco_error_list)
     return [d for l in results for d in l]
 
@@ -85,7 +86,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
     @mock.patch('requests.get')
     def test_that_sections_get_mapped_to_error_dicts(self, mock_get):
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', kwargs)
+        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', template)
         non_dicts = [d for d in error_dicts if type(d).__name__ != 'dict']
         self.assertTrue(len(non_dicts) == 0)
 
@@ -93,7 +94,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
     def test_that_error_dicts_have_the_appropriate_keys(self, mock_get):
         expected_keys = sorted(['id', 'msg', 'exp', 'aux_exp', 'action'])
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', kwargs)
+        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', template)
         dict_keys = [e.keys() for e in error_dicts]
         keys_found = sorted(list(set([key for keys in dict_keys for key in keys])))
         pp(error_dicts[:2])

@@ -1,4 +1,4 @@
-kwargs = {
+syslog_template = {
     "id":       {
         "selector": 'h3[@class="p_H_Head2"]',
         "replace":  ['', '']
