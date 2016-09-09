@@ -16,7 +16,6 @@ def get_error_sections(url, div_root_id):
     errors_section_root = errors_div_root.getchildren()[1]  # gets the section containing all error-sections
     return errors_section_root.findall('section')
 
-    #section_copy.find('p[@class="pEE_ErrExp"]').getparent().remove(section_copy.find('p[@class="pEE_ErrExp"]'))
 def pluck_children(parent, xpath, child=False):
     children = parent.findall(xpath)
     try:
@@ -30,28 +29,31 @@ def content_from(element, split=None):
     formatted = element.text_content().strip()
     return formatted if not split else formatted.split(split)[-1]
 
+def map_section_to_dicts(url, div_root_id):
+    error_sections = get_error_sections(url, div_root_id)
+    cisco_error_list = []
+    for section in error_sections:
+        error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')]
+        msg = [content_from(child, split='Error Message ') for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
+        exp = [content_from(child, split='Explanation ') for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
+        aux_exp = [content_from(child) for child in pluck_children(section, 'p[@class="pB2_Body2"]')]
+        action = [content_from(child, split='Recommended Action ') for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
+        error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
+        cisco_error_list.append(
+            {
+                "id":       error_id,
+                "msg":      msg,  # .split(':')[-1]
+                "exp":      exp,
+                "aux_exp":  aux_exp,
+                "action":   action
+            }
+        )
+    return cisco_error_list
 
 def map_sections_to_dicts(urls, div_root_id):
     results = []
     for url in urls:
-        error_sections = get_error_sections(url, div_root_id)
-        cisco_error_list = []
-        for section in error_sections:
-            error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')]
-            msg = [content_from(child, split='Error Message ') for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
-            exp = [content_from(child, split='Explanation ') for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
-            aux_exp = [content_from(child) for child in pluck_children(section, 'p[@class="pB2_Body2"]')]
-            action = [content_from(child, split='Recommended Action ') for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
-            error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
-            cisco_error_list.append(
-                {
-                    "id":       error_id,
-                    "msg":      msg,  # .split(':')[-1]
-                    "exp":      exp,
-                    "aux_exp":  aux_exp,
-                    "action":   action
-                }
-            )
+        cisco_error_list = map_section_to_dicts(url, div_root_id)
         results.append(cisco_error_list)
     return [d for l in results for d in l]
 
