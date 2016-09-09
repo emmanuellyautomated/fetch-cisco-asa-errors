@@ -37,17 +37,17 @@ def map_sections_to_dicts(url, div_root_id):
     for section in error_sections:
         error_id = [content_from(child) for child in pluck_children(section, 'h3[@class="p_H_Head2"]')]
         msg = [content_from(child, split='Error Message ') for child in pluck_children(section, 'span[@class="pEM_ErrMsg"]')]
-        explanation = [content_from(child) for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
-        aux_exp = [content_from(child) for child in pluck_children(section, 'p[@class="p_H_Head2"]')]
+        exp = [content_from(child, split='Explanation ') for child in pluck_children(section, 'p[@class="pEE_ErrExp"]')]
+        aux_exp = [content_from(child) for child in pluck_children(section, 'p[@class="pB2_Body2"]')]
         action = [content_from(child, split='Recommended Action ') for child in pluck_children(section, 'p[@class="pEA_ErrAct"]')]
         error_data = section.findall('p')  # auxiliary information is here in <p>, etc. tags
         cisco_error_list.append(
             {
-                "id":               error_id,
-                "msg":              msg,  # .split(':')[-1]
-                "explanation":      explanation,
-                "aux_exp":          aux_exp,
-                "action":           action
+                "id":       error_id,
+                "msg":      msg,  # .split(':')[-1]
+                "exp":      exp,
+                "aux_exp":  aux_exp,
+                "action":   action
             }
         )
     return cisco_error_list
@@ -105,12 +105,12 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
 
     @mock.patch('requests.get')
     def test_that_error_dicts_have_the_appropriate_keys(self, mock_get):
-        expected_keys = sorted(['id', 'msg', 'explanation', 'action'])
+        expected_keys = sorted(['id', 'msg', 'exp', 'aux_exp', 'action'])
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
         error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent')
         dict_keys = [e.keys() for e in error_dicts]
         keys_found = sorted(list(set([key for keys in dict_keys for key in keys])))
-        pp(error_dicts[:3])
+        pp([d for d in error_dicts if any(d.get('aux_exp'))][:10])
         self.assertTrue(keys_found == expected_keys)
 
 
@@ -128,13 +128,6 @@ IDEAL:
 
 NOT IDEAL:
 ----------
-<section>
-    <h3>
-    <span>
-    <p>
-    <...>  # more <p> tags
-    <p>
-
 <section>
     <h3>
     <span>
