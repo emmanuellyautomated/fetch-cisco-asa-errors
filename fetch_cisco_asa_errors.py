@@ -9,7 +9,6 @@ from helpers import syslog_template as template
 
 
 #TODO:
-#----> handle multiple selectors from template
 #----> separate dicts with multiple ids
 #----> handle unorthodox formats
 
@@ -26,7 +25,9 @@ def get_error_sections(url, div_root_id):
 
 def generate_error_dict(section, **template):
     for k, v in template.items():
-        template[k] = [content_from(child, drop=v['replace']) for child in pluck_children(section, v['selector'])]
+        if 'selectors' in v:
+            for selector in v['selectors']:
+                template.update({k: [content_from(child, drop=v['replace']) for child in pluck_children(section, selector)]})
     return template
 
 def map_section_to_dicts(url, div_root_id, template):
@@ -99,7 +100,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
         error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', template)
         dict_keys = [e.keys() for e in error_dicts]
         keys_found = sorted(list(set([key for keys in dict_keys for key in keys])))
-        pp(error_dicts[:2])
+        pp(error_dicts[10:20])
         self.assertTrue(keys_found == expected_keys)
 
 
