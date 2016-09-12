@@ -5,7 +5,31 @@ import mock
 from lxml import html
 from pprint import pprint as pp
 from helpers import pluck_children, content_from
-from helpers import syslog_template as template
+
+
+syslog_template = {
+    "id":       {
+        "selectors": ['h3[@class="p_H_Head2"]'],
+        "replace":  ['', '']
+    },
+    "msg":      {
+        "selectors": ['span[@class="pEM_ErrMsg"]'],
+        "replace":  ['Error Message ', '']
+    },
+    "exp":      {
+        "selectors": ['p[@class="pEE_ErrExp"]'],
+        "replace":  ['Explanation', '']
+    },
+    "aux_exp":  {
+        "selectors": ['p[@class="pB2_Body2"]', 'ul/li[@class="pBuS_BulletStepsub"]'],
+        "replace":  ['Explanation', '']
+    },
+    "action":   {
+        "selectors": ['p[@class="pEA_ErrAct"]'],
+        "replace":  ['Recommended Action ', '']
+    }
+}
+template = syslog_template
 
 
 #TODO:
@@ -100,8 +124,16 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
         error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', template)
         dict_keys = [e.keys() for e in error_dicts]
         keys_found = sorted(list(set([key for keys in dict_keys for key in keys])))
-        pp(error_dicts[10:20])
+        #pp(error_dicts[10:15])
         self.assertTrue(keys_found == expected_keys)
+
+    @mock.patch('requests.get')
+    def test_that_error_dicts_have_content_where_expected(self, mock_get):
+        content_keys = ['id', 'msg', 'exp', 'action']
+        mock_get.return_value = self._stub_response_content_with(self.sample_html)
+        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', template)
+        dict_values = [d[k] for k in content_keys for d in error_dicts]
+        self.assertEqual(all(list(map(any, dict_values))), True)
 
 
 if __name__ == "__main__":
