@@ -125,7 +125,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
         error_dicts = map_sections_to_dicts(cisco_errors_url, self.div_root_id, template)
         dict_keys = [e.keys() for e in error_dicts]
         keys_found = sorted(list(set([key for keys in dict_keys for key in keys])))
-        #pp(error_dicts[10:15])
+        pp(error_dicts[10:15])
         self.assertTrue(keys_found == expected_keys)
 
     @mock.patch('requests.get')
