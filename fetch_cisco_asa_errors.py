@@ -67,8 +67,8 @@ def map_sections_to_dicts(urls, div_root_id, template):
     results = []
     for url in urls:
         cisco_error_list = map_section_to_dicts(url, div_root_id, template)
-        results.append(cisco_error_list)
-    return [d for l in results for d in l]
+        results.extend(cisco_error_list)
+    return results
 
 cisco_errors_url = ['http://www.cisco.com/c/en/us/td/docs/security/asa/syslog-guide/syslogs/logmsgs1.html']
 cisco_errors_urls = [
@@ -85,6 +85,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
         target = open('sample_asa_errors_page.html', 'r')
         self.sample_html = target.read()
         target.close()
+        self.div_root_id = "chapterContent"
 
 #-- PRIVATE ---------------------->
     def _stub_response_content_with(self, stub):
@@ -101,19 +102,19 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
     @mock.patch('requests.get')
     def test_that_get_error_sections_returns_a_list(self, mock_get):
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        self.assertEqual(type(get_error_sections(cisco_errors_url, "chapterContent")).__name__, 'list')
+        self.assertEqual(type(get_error_sections(cisco_errors_url, self.div_root_id)).__name__, 'list')
 
     @mock.patch('requests.get')
     def test_that_all_error_sections_are_sections(self, mock_get):
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        sections = get_error_sections(cisco_errors_url, "chapterContent")
+        sections = get_error_sections(cisco_errors_url, self.div_root_id)
         non_section_elements = [s for s in sections if 'section' not in s.__repr__()]
         self.assertTrue(len(non_section_elements) == 0)
 
     @mock.patch('requests.get')
     def test_that_sections_get_mapped_to_error_dicts(self, mock_get):
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', template)
+        error_dicts = map_sections_to_dicts(cisco_errors_url, self.div_root_id, template)
         non_dicts = [d for d in error_dicts if type(d).__name__ != 'dict']
         self.assertTrue(len(non_dicts) == 0)
 
@@ -121,7 +122,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
     def test_that_error_dicts_have_the_appropriate_keys(self, mock_get):
         expected_keys = sorted(['id', 'msg', 'exp', 'aux_exp', 'action'])
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', template)
+        error_dicts = map_sections_to_dicts(cisco_errors_url, self.div_root_id, template)
         dict_keys = [e.keys() for e in error_dicts]
         keys_found = sorted(list(set([key for keys in dict_keys for key in keys])))
         #pp(error_dicts[10:15])
@@ -131,7 +132,7 @@ class TestCiscoASAErrorsFetch(unittest.TestCase):
     def test_that_error_dicts_have_content_where_expected(self, mock_get):
         content_keys = ['id', 'msg', 'exp', 'action']
         mock_get.return_value = self._stub_response_content_with(self.sample_html)
-        error_dicts = map_sections_to_dicts(cisco_errors_url, 'chapterContent', template)
+        error_dicts = map_sections_to_dicts(cisco_errors_url, self.div_root_id, template)
         dict_values = [d[k] for k in content_keys for d in error_dicts]
         self.assertEqual(all(list(map(any, dict_values))), True)
 
